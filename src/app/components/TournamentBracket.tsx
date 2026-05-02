@@ -1,39 +1,80 @@
+import { useState, useEffect, useRef } from "react";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws";
+
 interface TournamentBracketProps {
   sport: string;
 }
 
 interface BracketMatch {
-  id: string;
+  _id: string;
   team1: string;
   team2: string;
   score1?: number;
   score2?: number;
   winner?: string;
+  status: string;
+}
+
+interface Bracket {
+  quarterFinals: BracketMatch[];
+  semiFinals: BracketMatch[];
+  finals: BracketMatch[];
 }
 
 export function TournamentBracket({ sport }: TournamentBracketProps) {
-  const quarterFinals: BracketMatch[] = [
-    { id: "qf1", team1: "Team Alpha", team2: "Team Theta", score1: 3, score2: 1, winner: "Team Alpha" },
-    { id: "qf2", team1: "Team Beta", team2: "Team Eta", score1: 2, score2: 1, winner: "Team Beta" },
-    { id: "qf3", team1: "Team Gamma", team2: "Team Zeta", score1: 4, score2: 2, winner: "Team Gamma" },
-    { id: "qf4", team1: "Team Delta", team2: "Team Epsilon", score1: 2, score2: 3, winner: "Team Epsilon" },
-  ];
+  const [bracket, setBracket] = useState<Bracket>({ quarterFinals: [], semiFinals: [], finals: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  const semiFinals: BracketMatch[] = [
-    { id: "sf1", team1: "Team Alpha", team2: "Team Beta", score1: 2, score2: 1, winner: "Team Alpha" },
-    { id: "sf2", team1: "Team Gamma", team2: "Team Epsilon", score1: 3, score2: 3 },
-  ];
+  async function fetchBracket() {
+    try {
+      const res = await fetch(`${API_BASE}/api/${sport}/bracket`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setBracket(data);
+      setError(null);
+    } catch {
+      setError("Failed to load bracket");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const finals: BracketMatch[] = [
-    { id: "f1", team1: "Team Alpha", team2: "TBD" },
-  ];
+  useEffect(() => {
+    setLoading(true);
+    fetchBracket();
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (
+        msg.type === "refresh_all" ||
+        msg.type === "match_created" ||
+        (msg.type === "match_update" && msg.sport === sport)
+      ) {
+        fetchBracket();
+      }
+    };
+
+    ws.onerror = () => {
+      const interval = setInterval(fetchBracket, 15_000);
+      ws.onclose = () => clearInterval(interval);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [sport]);
 
   const renderMatch = (match: BracketMatch, isFinal?: boolean) => (
     <div
       className={`relative rounded-xl bg-[#0f1629]/60 backdrop-blur-sm border ${
-        isFinal
-          ? "border-yellow-500/50"
-          : "border-indigo-500/30"
+        isFinal ? "border-yellow-500/50" : "border-indigo-500/30"
       } p-4 w-64 hover:border-indigo-400/50 transition-all`}
     >
       {isFinal && (
@@ -49,7 +90,7 @@ export function TournamentBracket({ sport }: TournamentBracketProps) {
               : "bg-indigo-500/5"
           }`}
         >
-          <span className={`${match.winner === match.team1 ? "text-white" : "text-indigo-200"}`}>
+          <span className={match.winner === match.team1 ? "text-white" : "text-indigo-200"}>
             {match.team1}
           </span>
           {match.score1 !== undefined && (
@@ -71,7 +112,7 @@ export function TournamentBracket({ sport }: TournamentBracketProps) {
               : "bg-indigo-500/5"
           }`}
         >
-          <span className={`${match.winner === match.team2 ? "text-white" : "text-indigo-200"}`}>
+          <span className={match.winner === match.team2 ? "text-white" : "text-indigo-200"}>
             {match.team2}
           </span>
           {match.score2 !== undefined && (
@@ -90,66 +131,76 @@ export function TournamentBracket({ sport }: TournamentBracketProps) {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="flex gap-24 justify-center px-8 overflow-x-auto pb-8">
+        {[4, 2, 1].map((count, col) => (
+          <div key={col} className="flex flex-col gap-16">
+            {Array.from({ length: count }).map((_, i) => (
+              <div key={i} className="w-64 h-28 rounded-xl bg-[#0f1629]/40 border border-indigo-500/20 animate-pulse" />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl bg-red-900/20 border border-red-500/30 p-6 text-center text-red-400">
+        {error}
+      </div>
+    );
+  }
+
+  const { quarterFinals, semiFinals, finals } = bracket;
+
   return (
     <div className="overflow-x-auto pb-8">
       <div className="min-w-max px-8">
         <div className="relative flex gap-24 justify-center">
-          <svg
-            className="absolute inset-0 pointer-events-none"
-            style={{ width: "100%", height: "100%" }}
-          >
+          <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
             <line x1="33%" y1="17%" x2="44%" y2="17%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="17%" x2="44%" y2="28%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="28%" x2="50.5%" y2="28%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
-
             <line x1="33%" y1="39%" x2="44%" y2="39%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="39%" x2="44%" y2="28%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
-
             <line x1="33%" y1="61%" x2="44%" y2="61%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="61%" x2="44%" y2="72%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="72%" x2="50.5%" y2="72%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
-
             <line x1="33%" y1="83%" x2="44%" y2="83%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="44%" y1="83%" x2="44%" y2="72%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
-
             <line x1="66.5%" y1="28%" x2="73%" y2="28%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="73%" y1="28%" x2="73%" y2="50%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="73%" y1="50%" x2="78%" y2="50%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
-
             <line x1="66.5%" y1="72%" x2="73%" y2="72%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
             <line x1="73%" y1="72%" x2="73%" y2="50%" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" />
           </svg>
 
-          <div className="flex flex-col gap-16 relative z-10">
-            <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">
-              Quarter Finals
+          {quarterFinals.length > 0 && (
+            <div className="flex flex-col gap-16 relative z-10">
+              <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">Quarter Finals</div>
+              <div className="space-y-16">
+                {quarterFinals.map((match) => <div key={match._id}>{renderMatch(match)}</div>)}
+              </div>
             </div>
-            <div className="space-y-16">
-              {quarterFinals.map((match) => (
-                <div key={match.id}>{renderMatch(match)}</div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          <div className="flex flex-col gap-16 relative z-10 mt-32">
-            <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">
-              Semi Finals
+          {semiFinals.length > 0 && (
+            <div className="flex flex-col gap-16 relative z-10 mt-32">
+              <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">Semi Finals</div>
+              <div className="space-y-32">
+                {semiFinals.map((match) => <div key={match._id}>{renderMatch(match)}</div>)}
+              </div>
             </div>
-            <div className="space-y-32">
-              {semiFinals.map((match) => (
-                <div key={match.id}>{renderMatch(match)}</div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          <div className="flex flex-col gap-16 relative z-10 mt-64">
-            <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">
-              Championship
+          {finals.length > 0 && (
+            <div className="flex flex-col gap-16 relative z-10 mt-64">
+              <div className="text-center text-indigo-300 uppercase text-sm tracking-wider mb-4">Championship</div>
+              {finals.map((match) => <div key={match._id}>{renderMatch(match, true)}</div>)}
             </div>
-            {finals.map((match) => (
-              <div key={match.id}>{renderMatch(match, true)}</div>
-            ))}
-          </div>
+          )}
         </div>
       </div>
 

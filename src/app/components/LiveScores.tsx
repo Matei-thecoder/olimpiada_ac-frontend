@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Clock, Circle } from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws";
 
 interface LiveScoresProps {
   sport: string;
 }
 
 interface Match {
-  id: string;
+  _id: string;
   team1: string;
   team2: string;
   score1: number;
@@ -16,49 +19,87 @@ interface Match {
 }
 
 export function LiveScores({ sport }: LiveScoresProps) {
-  const [matches] = useState<Match[]>([
-    {
-      id: "1",
-      team1: "Team Alpha",
-      team2: "Team Beta",
-      score1: 2,
-      score2: 1,
-      status: "live",
-      time: "45:30",
-    },
-    {
-      id: "2",
-      team1: "Team Gamma",
-      team2: "Team Delta",
-      score1: 3,
-      score2: 3,
-      status: "live",
-      time: "67:15",
-    },
-    {
-      id: "3",
-      team1: "Team Epsilon",
-      team2: "Team Zeta",
-      score1: 0,
-      score2: 0,
-      status: "upcoming",
-      time: "14:00",
-    },
-    {
-      id: "4",
-      team1: "Team Eta",
-      team2: "Team Theta",
-      score1: 4,
-      score2: 2,
-      status: "finished",
-    },
-  ]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  async function fetchMatches() {
+    try {
+      const res = await fetch(`${API_BASE}/api/${sport}/matches/live`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setMatches(data);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load matches");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchMatches();
+
+    // WebSocket for real-time updates
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (
+        (msg.type === "match_update" || msg.type === "match_created") &&
+        (msg.sport === sport || msg.type === "refresh_all")
+      ) {
+        fetchMatches();
+      }
+    };
+
+    ws.onerror = () => {
+      // WS unavailable — polling fallback every 10 s
+      const interval = setInterval(fetchMatches, 10_000);
+      ws.onclose = () => clearInterval(interval);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [sport]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-2xl bg-[#0f1629]/40 border border-indigo-500/20 p-6 animate-pulse h-32"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl bg-red-900/20 border border-red-500/30 p-6 text-center text-red-400">
+        {error}
+      </div>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <div className="rounded-2xl bg-[#0f1629]/40 border border-indigo-500/20 p-12 text-center text-indigo-400">
+        No matches scheduled yet
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
       {matches.map((match) => (
         <div
-          key={match.id}
+          key={match._id}
           className="relative overflow-hidden rounded-2xl bg-[#0f1629]/40 backdrop-blur-sm border border-indigo-500/20 p-6 hover:border-indigo-400/40 transition-all"
         >
           <div className="flex items-center justify-between mb-6">
