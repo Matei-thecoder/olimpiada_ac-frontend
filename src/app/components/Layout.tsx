@@ -1,22 +1,25 @@
 import { Outlet, NavLink } from "react-router";
 import { Trophy, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Footer } from "./Footer";
 
 export function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const sports = [
-    { name: "Football", path: "/football" },
-    { name: "Volleyball", path: "/volleyball" },
-    { name: "Basketball", path: "/basketball" },
-    { name: "Cross", path: "/cross" },
-    { name: "Ping Pong", path: "/ping-pong" },
-    { name: "Chess", path: "/chess" },
-    { name: "Table Tennis", path: "/table-tennis" },
-    { name: "Rummy", path: "/rummy" },
+    { name: "Ping-Pong", path: "/table-tennis" },
     { name: "Badminton", path: "/badminton" },
-    { name: "Billiard", path: "/billiard" },
-    { name: "Bowling", path: "/bowling" },
+
+    { name: "Volleyball", path: "/volleyball" },
+    { name: "Cross", path: "/cross" },
+    { name: "Sah", path: "/chess" },
+    { name: "Remi", path: "/rummy" },
+    { name: "Table", path: "/rummy" },
+    { name: "Jocuri interactive", path: "/billiard" },
+
+    { name: "Fotbal", path: "/football" },
+    { name: "Baschet", path: "/basketball" },
+
   ];
 
   return (
@@ -32,7 +35,7 @@ export function Layout() {
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg blur opacity-50 group-hover:opacity-75 transition-opacity" />
                 <Trophy className="relative w-8 h-8 text-yellow-400" />
               </div>
-              <span className="text-xl text-white font-semibold">OLYMPIAD</span>
+              <span className="text-xl text-white font-semibold">OLIMPIADA AC</span>
             </NavLink>
 
             <button
@@ -48,10 +51,9 @@ export function Layout() {
                   key={sport.path}
                   to={sport.path}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg transition-all relative ${
-                      isActive
-                        ? "text-white"
-                        : "text-indigo-200 hover:text-white"
+                    `px-3 py-2 rounded-lg transition-all relative ${isActive
+                      ? "text-white"
+                      : "text-indigo-200 hover:text-white"
                     }`
                   }
                 >
@@ -68,10 +70,9 @@ export function Layout() {
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg transition-all relative ml-2 ${
-                    isActive
-                      ? "text-white"
-                      : "text-pink-300 hover:text-white"
+                  `px-3 py-2 rounded-lg transition-all relative ml-2 ${isActive
+                    ? "text-white"
+                    : "text-pink-300 hover:text-white"
                   }`
                 }
               >
@@ -95,10 +96,9 @@ export function Layout() {
                   to={sport.path}
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg transition-all ${
-                      isActive
-                        ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
-                        : "text-indigo-200 hover:text-white"
+                    `px-3 py-2 rounded-lg transition-all ${isActive
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+                      : "text-indigo-200 hover:text-white"
                     }`
                   }
                 >
@@ -109,10 +109,9 @@ export function Layout() {
                 to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg transition-all ${
-                    isActive
-                      ? "bg-gradient-to-r from-pink-600 to-red-600 text-white"
-                      : "text-pink-300 hover:text-white"
+                  `px-3 py-2 rounded-lg transition-all ${isActive
+                    ? "bg-gradient-to-r from-pink-600 to-red-600 text-white"
+                    : "text-pink-300 hover:text-white"
                   }`
                 }
               >
@@ -127,11 +126,7 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <footer className="relative bg-[#0f1629]/80 backdrop-blur-xl border-t border-indigo-500/20 py-6">
-        <div className="container mx-auto px-4 text-center text-indigo-300">
-          <p>© {new Date().getFullYear()} Sports Olympiad - Made with love by lsaciasi</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
