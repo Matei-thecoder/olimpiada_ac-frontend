@@ -6,7 +6,7 @@ const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? "";
 
 const SPORTS = [
   "football", "volleyball", "basketball", "cross",
-  "ping-pong", "chess", "table-tennis", "rummy",
+  "ping-pong", "chess", "table-tennis", "remi", "table",
   "badminton", "billiard", "bowling",
 ];
 

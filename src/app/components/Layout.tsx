@@ -13,8 +13,8 @@ export function Layout() {
     { name: "Volleyball", path: "/volleyball" },
     { name: "Cross", path: "/cross" },
     { name: "Sah", path: "/chess" },
-    { name: "Remi", path: "/rummy" },
-    { name: "Table", path: "/rummy" },
+    { name: "Remi", path: "/remi" },
+    { name: "Table", path: "/table" },
     { name: "Jocuri interactive", path: "/billiard" },
 
     { name: "Fotbal", path: "/football" },

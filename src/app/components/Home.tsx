@@ -20,8 +20,8 @@ export function Home() {
     { name: "Volei", path: "/volleyball", icon: Globe, gradient: "from-amber-500 to-orange-600" },
     { name: "Cross", path: "/cross", icon: Target, gradient: "from-cyan-500 to-blue-600" },
     { name: "Sah", path: "/chess", icon: Crown, gradient: "from-slate-500 to-gray-700" },
-    { name: "Remi", path: "/rummy", icon: Swords, gradient: "from-violet-500 to-purple-600" },
-    { name: "Table", path: "/rummy", icon: Swords, gradient: "from-violet-500 to-purple-600" },
+    { name: "Remi", path: "/remi", icon: Swords, gradient: "from-violet-500 to-purple-600" },
+    { name: "Table", path: "/table", icon: Swords, gradient: "from-violet-500 to-purple-600" },
     { name: "Jocuri interactive", path: "/billiard", icon: Circle, gradient: "from-teal-500 to-emerald-600" },
 
     { name: "Fotbal", path: "/football", icon: Dribbble, gradient: "from-emerald-500 to-teal-600" },
