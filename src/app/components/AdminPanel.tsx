@@ -10,6 +10,11 @@ const SPORTS = [
   "badminton", "billiard", "bowling",
 ];
 
+const API_SPORT_ALIASES: Record<string, string | null> = {
+  remi: "rummy",
+  table: null,
+};
+
 const ROUND_POSITIONS: Record<string, number[]> = {
   "group":         [],
   "quarter-final": [1, 2, 3, 4],
@@ -62,6 +67,17 @@ function adminFetch(path: string, options: RequestInit = {}) {
   });
 }
 
+function getApiSport(sport: string) {
+  return API_SPORT_ALIASES[sport] ?? sport;
+}
+
+function getSportLabel(sport: string) {
+  return sport
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export function AdminPanel() {
   const [activeSection, setActiveSection] = useState<"update" | "create">("update");
   const [toast, setToast] = useState<Toast | null>(null);
@@ -83,10 +99,18 @@ export function AdminPanel() {
   const [saving, setSaving] = useState(false);
 
   async function loadMatches(sport: string) {
+    const apiSport = getApiSport(sport);
+    if (!apiSport) {
+      setMatches([]);
+      setSelectedMatchId("");
+      showToast("error", `${getSportLabel(sport)} is not supported by the backend yet`);
+      return;
+    }
+
     setLoadingMatches(true);
     setSelectedMatchId("");
     try {
-      const data: Match[] = await adminFetch(`/api/${sport}/matches`).then((r) => r.json());
+      const data: Match[] = await adminFetch(`/api/${apiSport}/matches`).then((r) => r.json());
       setMatches(data);
       if (data.length > 0) {
         const first = data[0];
@@ -162,6 +186,12 @@ export function AdminPanel() {
   const [newBracketPosition, setNewBracketPosition] = useState(1);
   const [newTime, setNewTime] = useState("");
   const [creating, setCreating] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [teamWins, setTeamWins] = useState("0");
+  const [teamLosses, setTeamLosses] = useState("0");
+  const [teamDraws, setTeamDraws] = useState("0");
+  const [teamPoints, setTeamPoints] = useState("0");
+  const [savingTeam, setSavingTeam] = useState(false);
 
   useEffect(() => {
     const positions = ROUND_POSITIONS[newRound];
@@ -169,11 +199,20 @@ export function AdminPanel() {
   }, [newRound]);
 
   async function loadTeams(sport: string) {
+    const apiSport = getApiSport(sport);
+    if (!apiSport) {
+      setTeams([]);
+      setNewTeam1("");
+      setNewTeam2("");
+      showToast("error", `${getSportLabel(sport)} is not supported by the backend yet`);
+      return;
+    }
+
     setLoadingTeams(true);
     setNewTeam1("");
     setNewTeam2("");
     try {
-      const data: Team[] = await adminFetch(`/api/admin/teams/${sport}`).then((r) => r.json());
+      const data: Team[] = await adminFetch(`/api/admin/teams/${apiSport}`).then((r) => r.json());
       setTeams(data);
       if (data.length >= 2) {
         setNewTeam1(data[0].name);
@@ -192,12 +231,18 @@ export function AdminPanel() {
     if (!newTeam1 || !newTeam2) { showToast("error", "Please select both teams"); return; }
     if (newTeam1 === newTeam2)  { showToast("error", "Team 1 and Team 2 must be different"); return; }
 
+    const apiSport = getApiSport(newSport);
+    if (!apiSport) {
+      showToast("error", `${getSportLabel(newSport)} is not supported by the backend yet`);
+      return;
+    }
+
     setCreating(true);
     try {
       const res = await adminFetch("/api/admin/matches", {
         method: "POST",
         body: JSON.stringify({
-          sport: newSport,
+          sport: apiSport,
           team1: newTeam1,
           team2: newTeam2,
           score1: Number(newScore1),
@@ -219,6 +264,51 @@ export function AdminPanel() {
       showToast("error", "Failed to create match");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleSaveTeam() {
+    if (!teamName.trim()) {
+      showToast("error", "Please enter a team name");
+      return;
+    }
+
+    const apiSport = getApiSport(newSport);
+    if (!apiSport) {
+      showToast("error", `${getSportLabel(newSport)} is not supported by the backend yet`);
+      return;
+    }
+
+    setSavingTeam(true);
+    try {
+      const res = await adminFetch("/api/admin/teams", {
+        method: "POST",
+        body: JSON.stringify({
+          name: teamName.trim(),
+          sport: apiSport,
+          wins: Number(teamWins),
+          losses: Number(teamLosses),
+          draws: Number(teamDraws),
+          points: Number(teamPoints),
+        }),
+      });
+      if (!res.ok) throw new Error();
+
+      showToast("success", "Team saved successfully");
+      await loadTeams(newSport);
+      if (newSport === selectedSport) await loadMatches(selectedSport);
+
+      const savedTeamName = teamName.trim();
+      setTeamName("");
+      setTeamWins("0");
+      setTeamLosses("0");
+      setTeamDraws("0");
+      setTeamPoints("0");
+      setNewTeam1(savedTeamName);
+    } catch {
+      showToast("error", "Failed to save team");
+    } finally {
+      setSavingTeam(false);
     }
   }
 
@@ -302,7 +392,7 @@ export function AdminPanel() {
               <select value={selectedSport} onChange={(e) => setSelectedSport(e.target.value)} className={inputClass}>
                 {SPORTS.map((s) => (
                   <option key={s} value={s}>
-                    {s.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                    {getSportLabel(s)}
                   </option>
                 ))}
               </select>
@@ -391,7 +481,7 @@ export function AdminPanel() {
                   <select value={newSport} onChange={(e) => setNewSport(e.target.value)} className={inputClass}>
                     {SPORTS.map((s) => (
                       <option key={s} value={s}>
-                        {s.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+                        {getSportLabel(s)}
                       </option>
                     ))}
                   </select>
@@ -430,6 +520,73 @@ export function AdminPanel() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="rounded-2xl bg-[#0f1629]/40 backdrop-blur-sm border border-indigo-500/20 p-6">
+              <h2 className="text-xl text-white mb-6">Create or Update Team</h2>
+              <p className="text-sm text-indigo-300 mb-6">
+                Saves a team for the selected sport. If the same name already exists, its stats are overwritten.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Team Name</label>
+                  <input
+                    type="text"
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                    placeholder="e.g. ACS Informatica"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Wins</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={teamWins}
+                    onChange={(e) => setTeamWins(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Losses</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={teamLosses}
+                    onChange={(e) => setTeamLosses(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Draws</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={teamDraws}
+                    onChange={(e) => setTeamDraws(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Points</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={teamPoints}
+                    onChange={(e) => setTeamPoints(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveTeam}
+                disabled={savingTeam}
+                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                {savingTeam ? "Saving Team..." : "Save Team"}
+              </button>
             </div>
 
             <div className="rounded-2xl bg-[#0f1629]/40 backdrop-blur-sm border border-indigo-500/20 p-6">
